@@ -1,23 +1,31 @@
 # C-b is not acceptable, make it C-a
 set-option -g prefix C-a
+unbind C-b
 bind-key C-a last-window
+# C-a a sends a literal C-a (to a nested/remote tmux, or to the shell)
+bind-key a send-prefix
 
-# navigate windows 
+# navigate windows
 bind-key -n F11 previous-window
 bind-key -n F12 next-window
 
-# start numbering at 1
+# start numbering at 1, keep it dense
 set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
 
 # allows for faster key repetition
 set -s escape-time 0
+set -g repeat-time 400
 
-# rather than constraining window size to the maximum size of any client 
-# connected to the *session*, constrain window size to the maximum size of any 
-# client connected to *that window*. Much more reasonable.
+# constrain window size to the largest client looking at *that window*
 setw -g aggressive-resize on
 
-# hjkl pane traversal and alt arrow
+set -g history-limit 100000
+set -g focus-events on
+set -g display-time 2000
+
+# hjkl pane traversal and alt hjkl
 bind h select-pane -L
 bind j select-pane -D
 bind k select-pane -U
@@ -28,12 +36,13 @@ bind -n M-j select-pane -D
 bind -n M-k select-pane -U
 bind -n M-l select-pane -R
 
-# window splitting
-bind-key | split-window -h
-bind-key - split-window
+# window splitting (keeps current directory)
+bind-key | split-window -h -c "#{pane_current_path}"
+bind-key - split-window -v -c "#{pane_current_path}"
+bind-key c new-window -c "#{pane_current_path}"
 
 # choose session
-bind-key -n M-0 choose-session
+bind-key -n M-0 choose-tree -Zs
 
 # pane resizing - hold ALT + arrows
 bind-key -nr M-Up resize-pane -U
@@ -42,64 +51,54 @@ bind-key -nr M-Left resize-pane -L
 bind-key -nr M-Right resize-pane -R
 
 # reload config
-bind r source-file ~/.tmux.conf
+bind r source-file ~/.tmux.conf \; display "reloaded ~/.tmux.conf"
 
-# auto window rename
-set-window-option -g automatic-rename
+# --- terminal: true color, undercurl, extended keys, clipboard ---------------
+set -g default-terminal "tmux-256color"
+set -as terminal-features ",xterm-256color:RGB,xterm*:RGB:usstyle:extkeys:clipboard"
+set -g extended-keys on          # shift+enter etc. (Claude Code, vim)
+set -g set-clipboard on          # OSC 52: copy reaches the Mac clipboard, even over ssh
+set -g allow-passthrough on      # let apps talk to iTerm2 through tmux (images, notifications)
+set -g mouse on
 
-# color
-set -g default-terminal "screen-256color"
+# vi copy mode; y/Enter copies (to pbcopy locally, OSC 52 everywhere)
+set-window-option -g mode-keys vi
+bind-key -T copy-mode-vi v send -X begin-selection
+bind-key -T copy-mode-vi C-v send -X rectangle-toggle
+if-shell 'command -v pbcopy' {
+  bind-key -T copy-mode-vi y send -X copy-pipe-and-cancel 'pbcopy'
+  bind-key -T copy-mode-vi Enter send -X copy-pipe-and-cancel 'pbcopy'
+  bind-key -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel 'pbcopy'
+} {
+  bind-key -T copy-mode-vi y send -X copy-selection-and-cancel
+}
 
-set-option -g mouse-select-pane on
-set-window-option -g mode-mouse on
-
-set -g terminal-overrides 'xterm*:smcup@:rmcup@'
-
-# set status bar
-set-option -g status-utf8 on
-set-option -g status-bg colour234
-set-option -g status-fg colour248
-
-set-option -g status-left '#[fg=colour70]⣿'
-#set-option -g status-right '⡇ #[bold]❐ #S:#I#[default] ⡇ #[bold]#(whoami) ● #H#[default] '
-set-option -g status-right '❐ #S #[fg=colour70]⡇ #[fg=colour248]❖ #(rvm tools identifier) #[fg=colour70]⡇ #[fg=colour248]#(whoami) ● #H #[fg=colour70]⡇ #[fg=colour248]%m/%d/%Y - #[bold]%I:%M '
-#set-option -g status-left ' #[bold]❐ #S#[default] ⡇'
-#set-option -g status-right '#[bold]#(whoami) ● #H#[default] '
-
+# --- status bar ----------------------------------------------------------------
+set-option -g status-style bg=colour234,fg=colour248
+set-option -g status-left '#[fg=colour70]⣿ '
+# host in bold/orange when this tmux is running on a remote box
+set -g @hoststyle '#[fg=colour248]'
+if-shell '[ -n "$SSH_CONNECTION" ]' "set -g @hoststyle '#[fg=colour208,bold]'"
+set-option -g status-right '#{E:@hoststyle}#(whoami) ● #H #[default]#[fg=colour70]⡇ #[fg=colour248]❐ #S #[fg=colour70]⡇ #[fg=colour248]%m/%d/%Y - #[bold]%I:%M '
 set-option -g status-right-length 90
 set-option -g status-left-length 60
+set -g status-interval 15
 
 # highlight active window
-set-window-option -g window-status-current-bg colour0
-set-window-option -g window-status-current-fg colour15
-set-window-option -g window-status-current-attr bold
+set-window-option -g window-status-current-style bg=colour0,fg=colour15,bold
 set-window-option -g window-status-current-format ' #I #W '
+set-window-option -g window-status-style bold
+set-window-option -g window-status-format ' #I #W '
 
-# set window notifications
+# window notifications
 set-option -g visual-activity on
-set-option -g visual-content on
 set-window-option -g monitor-activity on
 set-window-option -g automatic-rename on
 
-# tmux window titling for X
+# terminal titles
 set-option -g set-titles on
-set-option -g set-titles-string '[#I] #W'
-set-window-option -g automatic-rename on
-set-window-option -g window-status-format ' #I #W '
-set-window-option -g window-status-attr bold
-# starts windows at 1 not 0
-set-option -g base-index 1
+set-option -g set-titles-string '#h ❐ #S ● #W'
 
-# enable mouse
-set-option -g mouse-select-pane on
-set-window-option -g mode-keys vi
-set-window-option -g mode-mouse on
-
-# pane border and colors
-set-option -g pane-active-border-fg green
-set-option -g pane-border-fg white
-
-# move x clipboard into tmux paste buffer
-bind C-p run "tmux set-buffer \"$(xclip -o)\"; tmux paste-buffer"
-# # move tmux copy buffer into x clipboard
-bind C-y run "tmux show-buffer | xclip -i"
+# pane border colors
+set-option -g pane-active-border-style fg=green
+set-option -g pane-border-style fg=white

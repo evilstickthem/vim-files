@@ -1,0 +1,75 @@
+# Starship prompt — successor to the old bash_prompt (venv, time, user, branch, path).
+# Symlinked to ~/.config/starship.toml by install.sh.
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+command_timeout = 800
+
+format = """
+$python\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$nodejs\
+$ruby\
+$cmd_duration\
+$fill\
+$time
+$character"""
+
+[fill]
+symbol = " "
+
+[time]
+disabled = false
+format = "[$time]($style)"
+time_format = "%H:%M:%S"
+style = "dimmed white"
+
+# user@host only shows over ssh (or as root) so remote shells are obvious
+[username]
+format = "[$user]($style)"
+style_user = "bold purple"
+style_root = "bold red"
+
+[hostname]
+ssh_only = true
+ssh_symbol = " "
+format = "[@$hostname$ssh_symbol]($style) "
+style = "bold bright-yellow"
+
+[directory]
+truncation_length = 4
+truncate_to_repo = false
+style = "bold #ffaf00"
+
+[git_branch]
+symbol = " "
+style = "bold green"
+
+[git_status]
+style = "bold red"
+
+[python]
+format = '[(\($virtualenv\) )]($style)'
+style = "blue"
+
+[nodejs]
+format = "[ $version](green) "
+detect_files = ["package.json", ".nvmrc"]
+detect_extensions = []
+
+[ruby]
+format = "[ $version](red) "
+detect_extensions = []
+
+[cmd_duration]
+min_time = 3000
+format = "[⏱ $duration]($style) "
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold green)"
